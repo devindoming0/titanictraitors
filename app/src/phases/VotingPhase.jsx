@@ -1,0 +1,136 @@
+import { useState } from 'react'
+import { useGame } from '../context/GameContext'
+import { submitVote, finalizeBanishment } from '../lib/gameActions'
+import { CHARACTERS } from '../lib/characters'
+
+export default function VotingPhase() {
+  const { game, players, currentPlayer, isHost } = useGame()
+  const [loading, setLoading] = useState(false)
+
+  const nominees    = (game?.nominees || []).map(id => players.find(p => p.id === id)).filter(Boolean)
+  const votes       = game?.votes || {}
+  const alivePlayers = players.filter(p => p.isAlive)
+  const myVote      = currentPlayer ? votes[currentPlayer.id] : null
+  const hasVoted    = !!myVote
+  const isAlive     = currentPlayer?.isAlive
+
+  const totalVotes  = Object.keys(votes).length
+  const totalVoters = alivePlayers.length
+
+  // Tally per nominee
+  function tallyFor(id) {
+    return Object.values(votes).filter(v => v === id).length
+  }
+
+  async function handleVote(targetId) {
+    if (hasVoted || !isAlive) return
+    await submitVote(game.id, currentPlayer.id, targetId)
+  }
+
+  async function handleFinalize() {
+    setLoading(true)
+    try {
+      await finalizeBanishment(game.id, players, votes, game.nominees)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="screen fade-in">
+      <div className="screen-header">
+        <p className="title-day">Day {game?.day} · Evening Dinner</p>
+        <h2 className="phase-label" style={{ marginTop: 6 }}>The Vote</h2>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <p className="section-title" style={{ marginBottom: 0 }}>Vote to Banish</p>
+        <span style={{ fontFamily: 'Cinzel', fontSize: '0.85rem', color: 'var(--gold)' }}>
+          {totalVotes} / {totalVoters} voted
+        </span>
+      </div>
+
+      <div className="player-list" style={{ marginBottom: 20 }}>
+        {nominees.map(p => {
+          const char = CHARACTERS[p.character]
+          const count = tallyFor(p.id)
+          const isMyVote = myVote === p.id
+          const pct = totalVoters > 0 ? (count / totalVoters) * 100 : 0
+
+          return (
+            <div
+              key={p.id}
+              className={`player-row ${!hasVoted && isAlive ? '' : ''} ${isMyVote ? 'selected' : ''}`}
+              onClick={() => handleVote(p.id)}
+              style={{ cursor: !hasVoted && isAlive ? 'pointer' : 'default', flexDirection: 'column', alignItems: 'stretch', gap: 10 }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div className="player-avatar">{char?.emoji}</div>
+                <div className="player-info">
+                  <div className="player-name">{p.name}</div>
+                  <div className="player-char">{char?.name}</div>
+                </div>
+                {isMyVote && (
+                  <span style={{ fontFamily: 'Cinzel', fontSize: '0.7rem', color: 'var(--gold)', letterSpacing: '0.1em' }}>
+                    YOUR VOTE
+                  </span>
+                )}
+                <span style={{ fontFamily: 'Cinzel', fontSize: '1.1rem', color: 'var(--gold)', minWidth: 24, textAlign: 'right' }}>
+                  {count}
+                </span>
+              </div>
+              {/* Vote bar */}
+              <div style={{ height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
+                <div style={{
+                  width: `${pct}%`, height: '100%',
+                  background: isMyVote ? 'var(--gold)' : 'var(--text-dim)',
+                  transition: 'width 0.4s',
+                }} />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {!isAlive && (
+        <p className="info-msg">You have been eliminated and cannot vote.</p>
+      )}
+
+      {isAlive && !hasVoted && (
+        <p className="info-msg">Tap a nominee above to cast your vote.</p>
+      )}
+
+      {isAlive && hasVoted && (
+        <p className="info-msg">Vote cast. Waiting for others…</p>
+      )}
+
+      {/* Who has / hasn't voted (names only, not who they voted for) */}
+      <div className="card" style={{ marginTop: 12 }}>
+        <p className="section-title">Waiting on</p>
+        {alivePlayers.filter(p => !votes[p.id]).map(p => (
+          <span key={p.id} style={{ display: 'inline-block', marginRight: 8, marginTop: 4, fontSize: '0.85rem', color: 'var(--text-dim)' }}>
+            {p.name}
+          </span>
+        ))}
+        {alivePlayers.every(p => votes[p.id]) && (
+          <p style={{ color: 'var(--faithful-fg)', fontSize: '0.9rem' }}>All votes are in!</p>
+        )}
+      </div>
+
+      {isHost && (
+        <div className="bottom-actions">
+          <button
+            className="btn btn-danger"
+            onClick={handleFinalize}
+            disabled={loading || totalVotes === 0}
+          >
+            {loading ? 'Processing…' : '⚖ Finalize Vote & Banish'}
+          </button>
+          <p className="info-msg" style={{ marginTop: 8 }}>
+            You can finalize early or wait for all votes. Majority wins.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
