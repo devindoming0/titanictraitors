@@ -3,3 +3,31 @@ runConfig:
   cpu: 1
   memoryMiB: 512
   concurrency: 80
+
+# Build-time env vars for Vite — injected during `npm run build` on App Hosting.
+# Replace VITE_FIREBASE_API_KEY with your rotated key from Google Cloud Console.
+env:
+  - variable: VITE_FIREBASE_API_KEY
+    value: REPLACE_WITH_YOUR_ROTATED_KEY
+    availability:
+      - BUILD
+  - variable: VITE_FIREBASE_AUTH_DOMAIN
+    value: traitors-a1884.firebaseapp.com
+    availability:
+      - BUILD
+  - variable: VITE_FIREBASE_PROJECT_ID
+    value: traitors-a1884
+    availability:
+      - BUILD
+  - variable: VITE_FIREBASE_STORAGE_BUCKET
+    value: traitors-a1884.firebasestorage.app
+    availability:
+      - BUILD
+  - variable: VITE_FIREBASE_MESSAGING_SENDER_ID
+    value: 282978069341
+    availability:
+      - BUILD
+  - variable: VITE_FIREBASE_APP_ID
+    value: 1:282978069341:web:276c58b5fca1ccde2516b4
+    availability:
+      - BUILD
