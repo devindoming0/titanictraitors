@@ -1,12 +1,26 @@
 const express = require('express')
 const path = require('path')
+const fs = require('fs')
 
 const app = express()
+const distPath = path.join(__dirname, 'dist')
+const indexPath = path.join(distPath, 'index.html')
 
-app.use(express.static(path.join(__dirname, 'dist')))
+if (!fs.existsSync(indexPath)) {
+  console.error('ERROR: dist/index.html not found. Did the build step run?')
+  console.error('Contents of', __dirname + ':', fs.readdirSync(__dirname).join(', '))
+}
 
+app.use(express.static(distPath))
+
+// SPA fallback — only for navigation requests, not missing assets
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'))
+  const ext = path.extname(req.path)
+  if (ext && ext !== '.html') {
+    // Asset request (e.g. .js, .css) that wasn't found by static middleware
+    return res.status(404).send('Not found')
+  }
+  res.sendFile(indexPath)
 })
 
 const port = process.env.PORT || 8080
