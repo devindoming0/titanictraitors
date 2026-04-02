@@ -13,7 +13,8 @@ export default function DayPhase() {
   function handleBeginDinner() {
     // Skip nominations — all alive players are nominees
     const nomineeIds = alivePlayers.map(p => p.id)
-    setNominees(game.id, nomineeIds)
+    const voteTimer = game?.settings?.voteTimerMinutes ?? 7
+    setNominees(game.id, nomineeIds, voteTimer)
   }
 
   return (

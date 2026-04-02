@@ -1,29 +1,69 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useGame } from '../context/GameContext'
 import { submitVote, finalizeBanishment } from '../lib/gameActions'
 import { CHARACTERS } from '../lib/characters'
 
+function useCountdown(endsAt) {
+  const [remaining, setRemaining] = useState(null)
+
+  useEffect(() => {
+    if (!endsAt) return
+    const end = endsAt.toMillis ? endsAt.toMillis() : new Date(endsAt).getTime()
+
+    function tick() {
+      setRemaining(Math.max(0, end - Date.now()))
+    }
+
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [endsAt])
+
+  return remaining
+}
+
+function formatCountdown(ms) {
+  if (ms === null) return '--:--'
+  const totalSec = Math.floor(ms / 1000)
+  const m = Math.floor(totalSec / 60)
+  const s = totalSec % 60
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
 export default function VotingPhase() {
   const { game, players, currentPlayer, isHost } = useGame()
   const [loading, setLoading] = useState(false)
+  const autoFinalizedRef = useRef(false)
 
-  const nominees    = (game?.nominees || []).map(id => players.find(p => p.id === id)).filter(Boolean)
-  const votes       = game?.votes || {}
+  const nominees     = (game?.nominees || []).map(id => players.find(p => p.id === id)).filter(Boolean)
+  const votes        = game?.votes || {}
   const alivePlayers = players.filter(p => p.isAlive)
-  const myVote      = currentPlayer ? votes[currentPlayer.id] : null
-  const hasVoted    = !!myVote
-  const isAlive     = currentPlayer?.isAlive
+  const myVote       = currentPlayer ? votes[currentPlayer.id] : null
+  const isAlive      = currentPlayer?.isAlive
 
   const totalVotes  = Object.keys(votes).length
   const totalVoters = alivePlayers.length
 
-  // Tally per nominee
+  const remaining = useCountdown(game?.voteEndsAt)
+  const expired   = remaining === 0
+  const isUrgent  = remaining !== null && remaining < 60 * 1000 // under 1 min
+
+  // Host auto-finalizes when timer expires
+  useEffect(() => {
+    if (isHost && expired && !autoFinalizedRef.current && !loading) {
+      autoFinalizedRef.current = true
+      handleFinalize()
+    }
+  }, [isHost, expired])
+
   function tallyFor(id) {
     return Object.values(votes).filter(v => v === id).length
   }
 
   async function handleVote(targetId) {
-    if (hasVoted || !isAlive) return
+    if (!isAlive) return
+    // Allow changing vote — tap same to keep, tap different to switch
+    if (myVote === targetId) return
     await submitVote(game.id, currentPlayer.id, targetId)
   }
 
@@ -43,6 +83,32 @@ export default function VotingPhase() {
         <h2 className="phase-label" style={{ marginTop: 6 }}>The Vote</h2>
       </div>
 
+      {/* Synced countdown timer */}
+      {game?.voteEndsAt && (
+        <div className="card" style={{
+          textAlign: 'center',
+          marginBottom: 16,
+          borderColor: isUrgent ? 'var(--traitor-fg)' : 'var(--border)',
+        }}>
+          <p style={{
+            fontSize: '0.75rem', letterSpacing: '0.2em',
+            color: isUrgent ? 'var(--traitor-fg)' : 'var(--text-dim)',
+            textTransform: 'uppercase',
+          }}>
+            {expired ? 'Time is up' : 'Vote closes in'}
+          </p>
+          <p style={{
+            fontFamily: 'Cinzel',
+            fontSize: '2.2rem',
+            color: isUrgent ? 'var(--traitor-fg)' : 'var(--gold)',
+            marginTop: 4,
+            letterSpacing: '0.1em',
+          }}>
+            {expired ? '00:00' : formatCountdown(remaining)}
+          </p>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <p className="section-title" style={{ marginBottom: 0 }}>Vote to Banish</p>
         <span style={{ fontFamily: 'Cinzel', fontSize: '0.85rem', color: 'var(--gold)' }}>
@@ -56,13 +122,14 @@ export default function VotingPhase() {
           const count = tallyFor(p.id)
           const isMyVote = myVote === p.id
           const pct = totalVoters > 0 ? (count / totalVoters) * 100 : 0
+          const canVote = isAlive && !expired
 
           return (
             <div
               key={p.id}
-              className={`player-row ${!hasVoted && isAlive ? '' : ''} ${isMyVote ? 'selected' : ''}`}
-              onClick={() => handleVote(p.id)}
-              style={{ cursor: !hasVoted && isAlive ? 'pointer' : 'default', flexDirection: 'column', alignItems: 'stretch', gap: 10 }}
+              className={`player-row ${isMyVote ? 'selected' : ''}`}
+              onClick={() => canVote && handleVote(p.id)}
+              style={{ cursor: canVote ? 'pointer' : 'default', flexDirection: 'column', alignItems: 'stretch', gap: 10 }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div className="player-avatar">{char?.emoji}</div>
@@ -96,15 +163,19 @@ export default function VotingPhase() {
         <p className="info-msg">You have been eliminated and cannot vote.</p>
       )}
 
-      {isAlive && !hasVoted && (
-        <p className="info-msg">Tap a nominee above to cast your vote.</p>
+      {isAlive && !myVote && !expired && (
+        <p className="info-msg">Tap a passenger above to cast your vote.</p>
       )}
 
-      {isAlive && hasVoted && (
-        <p className="info-msg">Vote cast. Waiting for others…</p>
+      {isAlive && myVote && !expired && (
+        <p className="info-msg">Vote cast. Tap a different passenger to change your vote.</p>
       )}
 
-      {/* Who has / hasn't voted (names only, not who they voted for) */}
+      {isAlive && expired && (
+        <p className="info-msg">Voting has closed. Tallying results…</p>
+      )}
+
+      {/* Who has / hasn't voted */}
       <div className="card" style={{ marginTop: 12 }}>
         <p className="section-title">Waiting on</p>
         {alivePlayers.filter(p => !votes[p.id]).map(p => (
@@ -127,7 +198,9 @@ export default function VotingPhase() {
             {loading ? 'Processing…' : '⚖ Finalize Vote & Banish'}
           </button>
           <p className="info-msg" style={{ marginTop: 8 }}>
-            You can finalize early or wait for all votes. Majority wins.
+            {expired
+              ? 'Timer expired — finalizing automatically.'
+              : 'You can finalize early or wait for the timer. Majority wins.'}
           </p>
         </div>
       )}

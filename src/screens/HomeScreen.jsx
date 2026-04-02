@@ -6,6 +6,7 @@ const DEFAULT_SETTINGS = {
   characterAbilities: false,
   ghostWhisper: false,
   lockedRoom: false,
+  voteTimerMinutes: 7,
 }
 
 function Toggle({ label, desc, checked, onChange }) {
@@ -133,6 +134,29 @@ export default function HomeScreen({ authUid, onNavigate }) {
           checked={settings.lockedRoom}
           onChange={v => setSetting('lockedRoom', v)}
         />
+
+        <p className="section-title" style={{ marginTop: 16 }}>Timers</p>
+        <div className="toggle-row">
+          <div className="toggle-text">
+            <strong>Vote Timer</strong>
+            <span>How long players have to cast their banishment vote.</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <select
+              value={settings.voteTimerMinutes}
+              onChange={e => setSetting('voteTimerMinutes', Number(e.target.value))}
+              style={{
+                background: 'var(--bg-card)', color: 'var(--text)',
+                border: '1px solid var(--border)', borderRadius: 6,
+                padding: '6px 10px', fontFamily: 'Cinzel', fontSize: '0.9rem',
+              }}
+            >
+              {[3, 5, 7, 10, 15].map(m => (
+                <option key={m} value={m}>{m} min</option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         {error && <p className="error-msg">{error}</p>}
 

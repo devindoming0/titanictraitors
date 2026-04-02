@@ -124,10 +124,12 @@ export async function advancePhase(gameId, newPhase, extra = {}) {
   await updateDoc(doc(db, 'games', gameId), { phase: newPhase, ...extra })
 }
 
-export async function setNominees(gameId, nomineeIds) {
+export async function setNominees(gameId, nomineeIds, voteTimerMinutes = 7) {
+  const voteEndsAt = new Date(Date.now() + voteTimerMinutes * 60 * 1000)
   await updateDoc(doc(db, 'games', gameId), {
     nominees: nomineeIds,
     votes: {},
+    voteEndsAt,
     phase: 'voting',
   })
 }
@@ -158,6 +160,7 @@ export async function finalizeBanishment(gameId, allPlayers, votes, nominees) {
     lastBanished: { playerId: banishedId, character: banished.character, name: banished.name, role: banished.role },
     votes: {},
     nominees: [],
+    voteEndsAt: null,
     murderSubmissions: {},
     phase: winner ? 'ended' : 'night',
     ...(winner ? { status: 'ended', winner } : {}),
