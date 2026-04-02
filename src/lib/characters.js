@@ -80,14 +80,18 @@ export function getCharactersForCount(count) {
 }
 
 export const BEHAVIORS = [
-  'Stir your drink counterclockwise before every sip.',
-  'Hum a few bars of "My Heart Will Go On" every time you enter a room.',
-  'Never say "ship" — only "the vessel."',
-  'Always sit with your back against a wall or railing.',
-  'Fold your napkin into a perfect triangle before eating anything.',
-  'Address others by last name only — no first names.',
-  'Make 3 full seconds of eye contact before speaking to someone.',
-  'Reference the weather or the sea at least once every hour.',
+  'Always check your phone before responding to a question.',
+  'Take a sip of your drink right after someone else does.',
+  'Cross your arms whenever you are listening to someone speak.',
+  'Tap the table or a surface lightly before you start talking.',
+  'Always be the last person to sit down.',
+  'Scratch or touch the side of your neck when asked a direct question.',
+  'Clear your throat before changing the subject.',
+  'Glance toward the nearest exit whenever someone new joins the conversation.',
+  'Rest your chin on your hand when someone else is making a point.',
+  'Always agree with the first opinion stated, then quietly walk it back later.',
+  'Offer to refill someone else\'s drink at least once per gathering.',
+  'Stretch or adjust your posture right after someone accuses anyone.',
 ]
 
 export function traitorCount(playerCount) {
