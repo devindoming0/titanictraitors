@@ -8,7 +8,7 @@ runConfig:
 # Replace VITE_FIREBASE_API_KEY with your rotated key from Google Cloud Console.
 env:
   - variable: VITE_FIREBASE_API_KEY
-    value: REPLACE_WITH_YOUR_ROTATED_KEY
+    secret: VITE_FIREBASE_API_KEY
     availability:
       - BUILD
   - variable: VITE_FIREBASE_AUTH_DOMAIN
