@@ -4,3 +4,4 @@ app/dist
 app/.env
 app/.env.local
 functions/node_modules
+node_modules

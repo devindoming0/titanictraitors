@@ -1,0 +1,14 @@
+{
+  "name": "titanictraitors",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "cd app && npm install && npm run build",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.0"
+  },
+  "engines": {
+    "node": "20"
+  }
+}
