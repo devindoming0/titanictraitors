@@ -1,12 +1,38 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useGame } from '../context/GameContext'
-import { submitMurder, finalizeMorning } from '../lib/gameActions'
+import { submitMurder } from '../lib/gameActions'
 import { CHARACTERS } from '../lib/characters'
 
+function useCountdown(nightEndsAt) {
+  const [remaining, setRemaining] = useState(null)
+
+  useEffect(() => {
+    if (!nightEndsAt) return
+
+    function tick() {
+      const msLeft = nightEndsAt.toMillis() - Date.now()
+      setRemaining(Math.max(0, msLeft))
+    }
+
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [nightEndsAt])
+
+  return remaining
+}
+
+function formatCountdown(ms) {
+  if (ms === null) return '--:--'
+  const totalSec = Math.floor(ms / 1000)
+  const m = Math.floor(totalSec / 60)
+  const s = totalSec % 60
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
 export default function NightPhase() {
-  const { game, players, currentPlayer, isHost } = useGame()
+  const { game, players, currentPlayer } = useGame()
   const [selected, setSelected] = useState(null)
-  const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const isTraitor  = currentPlayer?.role === 'traitor'
@@ -14,39 +40,30 @@ export default function NightPhase() {
   const submissions = game?.murderSubmissions || {}
   const mySubmission = currentPlayer ? submissions[currentPlayer.id] : null
 
-  // Faithfuls can only target from alive faithfuls
   const targetablePlayers = players.filter(p => p.isAlive && p.role === 'faithful')
   const aliveTraitors = players.filter(p => p.isAlive && p.role === 'traitor')
 
-  // Check if all traitors have submitted the same target
-  const traitorIds = aliveTraitors.map(t => t.id)
-  const allSubmitted = traitorIds.every(id => submissions[id])
-  const submittedValues = traitorIds.map(id => submissions[id]).filter(Boolean)
-  const allAgree = allSubmitted && submittedValues.every(v => v === submittedValues[0])
+  const allSubmitted = aliveTraitors.every(t => submissions[t.id])
+  const submittedValues = aliveTraitors.map(t => submissions[t.id]).filter(Boolean)
+  const allAgree = allSubmitted && submittedValues.length > 0 &&
+    submittedValues.every(v => v === submittedValues[0])
+
+  const remaining = useCountdown(game?.nightEndsAt)
+  const isUrgent  = remaining !== null && remaining < 10 * 60 * 1000 // under 10 min
+  const expired   = remaining === 0
+
+  const banished     = game?.lastBanished
+  const banishedChar = banished ? CHARACTERS[banished.character] : null
 
   async function handleSubmit() {
     if (!selected || !currentPlayer) return
     setLoading(true)
     try {
       await submitMurder(game.id, currentPlayer.id, selected)
-      setSubmitted(true)
     } finally {
       setLoading(false)
     }
   }
-
-  async function handleMorning() {
-    setLoading(true)
-    try {
-      await finalizeMorning(game.id, players, game)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Banishment announcement (shown to all after vote)
-  const banished = game?.lastBanished
-  const banishedChar = banished ? CHARACTERS[banished.character] : null
 
   return (
     <div className="screen fade-in">
@@ -54,6 +71,37 @@ export default function NightPhase() {
         <p className="title-day">Day {game?.day} · Night</p>
         <h2 className="phase-label" style={{ marginTop: 6 }}>After Dinner</h2>
       </div>
+
+      {/* Countdown timer */}
+      {game?.nightEndsAt && (
+        <div className="card" style={{
+          textAlign: 'center',
+          marginBottom: 20,
+          borderColor: isUrgent ? 'var(--traitor-fg)' : 'var(--border)',
+        }}>
+          <p style={{
+            fontSize: '0.75rem', letterSpacing: '0.2em',
+            color: isUrgent ? 'var(--traitor-fg)' : 'var(--text-dim)',
+            textTransform: 'uppercase',
+          }}>
+            {expired ? 'Murder window closed' : 'Murder window closes in'}
+          </p>
+          <p style={{
+            fontFamily: 'Cinzel',
+            fontSize: '2.2rem',
+            color: isUrgent ? 'var(--traitor-fg)' : 'var(--gold)',
+            marginTop: 4,
+            letterSpacing: '0.1em',
+          }}>
+            {expired ? '00:00' : formatCountdown(remaining)}
+          </p>
+          {expired && (
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginTop: 6, fontStyle: 'italic' }}>
+              The morning announcement will arrive shortly…
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Banishment result */}
       {banished && banishedChar && (
@@ -77,8 +125,8 @@ export default function NightPhase() {
         </div>
       )}
 
-      {/* Traitor view */}
-      {isTraitor && isAlive && (
+      {/* Traitor murder UI */}
+      {isTraitor && isAlive && !expired && (
         <div>
           <div className="murder-banner" style={{ marginBottom: 20 }}>
             <p style={{ fontSize: '1.8rem' }}>🗡</p>
@@ -86,7 +134,7 @@ export default function NightPhase() {
               Choose Your Victim
             </p>
             <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem', marginTop: 8 }}>
-              Submit within one hour of dinner ending.
+              Submit before the timer runs out. If you don't submit, no one dies tonight.
             </p>
           </div>
 
@@ -154,18 +202,19 @@ export default function NightPhase() {
                       </div>
                     )
                   })}
+                  {allAgree && (
+                    <p style={{ color: 'var(--faithful-fg)', marginTop: 10, fontSize: '0.9rem' }}>
+                      ✓ Both traitors agree. The deed is done.
+                    </p>
+                  )}
                 </div>
               )}
-
-              <p className="info-msg" style={{ marginTop: 12 }}>
-                {allAgree ? '✓ All traitors agree. Waiting for the host.' : 'Waiting for your partner…'}
-              </p>
             </div>
           )}
         </div>
       )}
 
-      {/* Faithful view */}
+      {/* Faithful waiting screen */}
       {(!isTraitor || !isAlive) && (
         <div>
           <div className="phase-banner">
@@ -176,20 +225,11 @@ export default function NightPhase() {
               Someone may not see the morning.
             </p>
           </div>
-          <p className="info-msg" style={{ marginTop: 8 }}>
-            The murder will be announced in the morning.
-          </p>
-        </div>
-      )}
-
-      {/* Host controls */}
-      {isHost && (
-        <div className="bottom-actions">
-          <button className="btn btn-primary" onClick={handleMorning} disabled={loading}>
-            {loading ? 'Processing…' : '🌅 Reveal the Morning →'}
-          </button>
-          <p className="info-msg" style={{ marginTop: 8 }}>
-            Use this after all traitors have submitted their target.
+          <p className="info-msg">
+            {expired
+              ? 'The night has passed. The morning announcement is on its way…'
+              : 'The murder announcement will appear here automatically when morning arrives.'
+            }
           </p>
         </div>
       )}

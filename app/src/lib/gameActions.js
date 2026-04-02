@@ -166,47 +166,12 @@ export async function finalizeBanishment(gameId, allPlayers, votes, nominees) {
 }
 
 // ─── Murder ───────────────────────────────────────────────────────────────────
+// Murder resolution is handled server-side by the Cloud Function (functions/index.js).
+// The client only submits the traitor's choice. The function processes it after
+// the 1-hour window and pushes the result to all clients via Firestore.
 
 export async function submitMurder(gameId, traitorId, targetId) {
   await updateDoc(doc(db, 'games', gameId), {
     [`murderSubmissions.${traitorId}`]: targetId,
   })
-}
-
-export async function finalizeMorning(gameId, allPlayers, game) {
-  const { murderSubmissions, settings, day } = game
-  const aliveFaithfuls = allPlayers.filter(p => p.isAlive && p.role === 'faithful')
-  const aliveTraitors = allPlayers.filter(p => p.isAlive && p.role === 'traitor')
-
-  // Resolve murder target
-  let murderedId = null
-  if (aliveTraitors.length === 1) {
-    murderedId = murderSubmissions[aliveTraitors[0].id] || null
-  } else if (aliveTraitors.length >= 2) {
-    const submissions = aliveTraitors.map(t => murderSubmissions[t.id]).filter(Boolean)
-    // Use agreed target, else first submission
-    const agreed = submissions.find(id => submissions.filter(x => x === id).length === aliveTraitors.length)
-    murderedId = agreed || submissions[0] || null
-  }
-
-  const murdered = murderedId ? allPlayers.find(p => p.id === murderedId) : null
-  const updatedPlayers = allPlayers.map(p =>
-    p.id === murderedId ? { ...p, isAlive: false } : p
-  )
-  const winner = checkWinConditions(updatedPlayers)
-
-  const batch = writeBatch(db)
-  if (murderedId) {
-    batch.update(doc(db, 'games', gameId, 'players', murderedId), { isAlive: false })
-  }
-  batch.update(doc(db, 'games', gameId), {
-    lastMurdered: murdered
-      ? { playerId: murderedId, character: murdered.character, name: murdered.name }
-      : null,
-    murderSubmissions: {},
-    day: day + 1,
-    phase: winner ? 'ended' : 'morning',
-    ...(winner ? { status: 'ended', winner } : {}),
-  })
-  await batch.commit()
 }
