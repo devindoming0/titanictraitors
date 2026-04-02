@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { onAuthStateChanged, signInAnonymously } from 'firebase/auth'
 import { auth } from './firebase'
 import { GameProvider } from './context/GameContext'
+import DebugPanel from './debug/DebugPanel'
 
 import HomeScreen    from './screens/HomeScreen'
 import LobbyScreen   from './screens/LobbyScreen'
@@ -20,6 +21,8 @@ function saveSession(session) {
 function clearSession() {
   localStorage.removeItem('tt_session')
 }
+
+const isDebugMode = new URLSearchParams(window.location.search).has('debug')
 
 export default function App() {
   const [authUid, setAuthUid] = useState(null)
@@ -88,6 +91,7 @@ export default function App() {
         <GameScreen onGameOver={() => setScreen('gameover')} onNavigateReveal={() => setScreen('reveal')} />}
       {screen === 'gameover' &&
         <GameOverScreen onPlayAgain={handleReset} />}
+      {isDebugMode && <DebugPanel />}
     </GameProvider>
   )
 }
