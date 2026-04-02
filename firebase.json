@@ -3,7 +3,7 @@
     "source": "functions"
   },
   "hosting": {
-    "public": "app/dist",
+    "public": "dist",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -16,7 +16,7 @@
       }
     ],
     "predeploy": [
-      "cd app && npm install && npm run build"
+      "npm install && npm run build"
     ]
   }
 }
