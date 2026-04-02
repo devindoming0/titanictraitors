@@ -4,7 +4,6 @@ import { useGame } from '../context/GameContext'
 import Night0Phase    from '../phases/Night0Phase'
 import MorningPhase   from '../phases/MorningPhase'
 import DayPhase       from '../phases/DayPhase'
-import NominationPhase from '../phases/NominationPhase'
 import VotingPhase    from '../phases/VotingPhase'
 import NightPhase     from '../phases/NightPhase'
 
@@ -32,7 +31,6 @@ export default function GameScreen({ onGameOver, onNavigateReveal }) {
       {phase === 'night0'      && <Night0Phase />}
       {phase === 'morning'     && <MorningPhase />}
       {phase === 'day'         && <DayPhase />}
-      {phase === 'nominations' && <NominationPhase />}
       {phase === 'voting'      && <VotingPhase />}
       {phase === 'night'       && <NightPhase />}
     </>

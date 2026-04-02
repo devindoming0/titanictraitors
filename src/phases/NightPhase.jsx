@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useGame } from '../context/GameContext'
-import { submitMurder } from '../lib/gameActions'
+import { submitMurder, resolveMurder } from '../lib/gameActions'
 import { CHARACTERS } from '../lib/characters'
 
 function useCountdown(nightEndsAt) {
@@ -31,7 +31,7 @@ function formatCountdown(ms) {
 }
 
 export default function NightPhase() {
-  const { game, players, currentPlayer } = useGame()
+  const { game, players, currentPlayer, isHost } = useGame()
   const [selected, setSelected] = useState(null)
   const [loading, setLoading] = useState(false)
 
@@ -230,6 +230,25 @@ export default function NightPhase() {
               ? 'The night has passed. The morning announcement is on its way…'
               : 'The murder announcement will appear here automatically when morning arrives.'
             }
+          </p>
+        </div>
+      )}
+
+      {/* Host: resolve murder and advance to morning */}
+      {isHost && (
+        <div className="bottom-actions">
+          <button
+            className="btn btn-primary"
+            disabled={loading}
+            onClick={async () => {
+              setLoading(true)
+              try { await resolveMurder(game.id, players, game) } finally { setLoading(false) }
+            }}
+          >
+            {loading ? 'Resolving…' : '🌅 Resolve Murder & Begin Morning'}
+          </button>
+          <p className="info-msg" style={{ marginTop: 8 }}>
+            {Object.keys(submissions).length} of {aliveTraitors.length} traitor(s) submitted.
           </p>
         </div>
       )}

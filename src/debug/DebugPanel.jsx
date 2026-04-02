@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useGame } from '../context/GameContext'
 import { CHARACTERS } from '../lib/characters'
 import { fillWithFakePlayers, autoVoteFakes, autoMurder } from './debugActions'
+import { resolveMurder } from '../lib/gameActions'
 
 const PHASE_LABELS = {
   lobby: 'Lobby',
@@ -289,53 +290,14 @@ export default function DebugPanel() {
 
           {/* Night phase */}
           {phase === 'night' && (
-            <div>
-              {fakeTraitors.length > 0 ? (
-                <>
-                  <div style={{
-                    background: '#1e293b', borderRadius: 6, padding: '6px 10px',
-                    marginBottom: 8, fontSize: 10,
-                  }}>
-                    <div style={{ color: '#94a3b8', marginBottom: 2 }}>Fake traitors</div>
-                    <div style={{ color: '#fca5a5' }}>{fakeTraitors.map(t => t.name).join(', ')}</div>
-                    <div style={{ color: '#475569', marginTop: 4 }}>
-                      {fakeTraitors.filter(t => game?.murderSubmissions?.[t.id]).length} / {fakeTraitors.length} submitted
-                    </div>
-                  </div>
-                  <ActionButton
-                    disabled={busy}
-                    color="#7c3aed"
-                    onClick={() => run(() => autoMurder(game.id, fakeTraitors, aliveFaithfuls), 'Auto-murder')}
-                  >
-                    Auto-Murder
-                    <Badge bg="#581c87" color="#e9d5ff">random faithful</Badge>
-                  </ActionButton>
-                </>
-              ) : (
-                <EmptyState>No fake traitors alive.</EmptyState>
-              )}
-
-              {Object.keys(game?.murderSubmissions || {}).length > 0 && (
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ color: '#475569', fontSize: 9, letterSpacing: '0.1em', fontWeight: 700, marginBottom: 4 }}>
-                    SUBMISSIONS
-                  </div>
-                  {Object.entries(game.murderSubmissions).map(([tid, victimId]) => {
-                    const traitor = players.find(p => p.id === tid)
-                    const victim  = players.find(p => p.id === victimId)
-                    return (
-                      <div key={tid} style={{
-                        fontSize: 10, color: '#fca5a5',
-                        padding: '3px 0',
-                        borderBottom: '1px solid #1e293b',
-                      }}>
-                        {traitor?.name} <span style={{ color: '#475569' }}>→</span> {victim?.name}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
+            <NightActions
+              busy={busy}
+              run={run}
+              game={game}
+              players={players}
+              fakeTraitors={fakeTraitors}
+              aliveFaithfuls={aliveFaithfuls}
+            />
           )}
 
           {/* Idle phases */}
@@ -408,6 +370,93 @@ function EmptyState({ children }) {
   return (
     <div style={{ color: '#475569', fontSize: 10, padding: '6px 0', fontStyle: 'italic' }}>
       {children}
+    </div>
+  )
+}
+
+function NightActions({ busy, run, game, players, fakeTraitors, aliveFaithfuls }) {
+  const [murderTarget, setMurderTarget] = useState(null)
+  const submissions = game?.murderSubmissions || {}
+
+  return (
+    <div>
+      {fakeTraitors.length > 0 ? (
+        <>
+          <div style={{
+            background: '#1e293b', borderRadius: 6, padding: '6px 10px',
+            marginBottom: 8, fontSize: 10,
+          }}>
+            <div style={{ color: '#94a3b8', marginBottom: 2 }}>Fake traitors</div>
+            <div style={{ color: '#fca5a5' }}>{fakeTraitors.map(t => t.name).join(', ')}</div>
+            <div style={{ color: '#475569', marginTop: 4 }}>
+              {fakeTraitors.filter(t => submissions[t.id]).length} / {fakeTraitors.length} submitted
+            </div>
+          </div>
+
+          {/* Target picker */}
+          <div style={{ color: '#64748b', fontSize: 10, marginBottom: 4 }}>
+            Pick murder target:
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 8 }}>
+            {aliveFaithfuls.map(p => {
+              const char = CHARACTERS[p.character]
+              const isSelected = murderTarget === p.id
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => setMurderTarget(p.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '4px 8px',
+                    borderRadius: 4,
+                    background: isSelected ? '#7f1d1d' : '#1e293b',
+                    border: isSelected ? '1px solid #fca5a5' : '1px solid transparent',
+                    cursor: 'pointer',
+                    fontSize: 10,
+                  }}
+                >
+                  <span>{char?.emoji ?? '?'}</span>
+                  <span style={{ flex: 1, color: isSelected ? '#fca5a5' : '#cbd5e1' }}>{p.name}</span>
+                  {isSelected && <span style={{ color: '#fca5a5' }}>target</span>}
+                </div>
+              )
+            })}
+          </div>
+          <ActionButton
+            disabled={busy || !murderTarget}
+            color="#7c3aed"
+            onClick={() => run(() => autoMurder(game.id, fakeTraitors, aliveFaithfuls, murderTarget), 'Murder submitted')}
+          >
+            Submit Murder
+            <Badge bg="#581c87" color="#e9d5ff">
+              {murderTarget ? aliveFaithfuls.find(p => p.id === murderTarget)?.name : 'pick target'}
+            </Badge>
+          </ActionButton>
+        </>
+      ) : (
+        <EmptyState>No fake traitors alive.</EmptyState>
+      )}
+
+      {Object.keys(submissions).length > 0 && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ color: '#475569', fontSize: 9, letterSpacing: '0.1em', fontWeight: 700, marginBottom: 4 }}>
+            SUBMISSIONS
+          </div>
+          {Object.entries(submissions).map(([tid, victimId]) => {
+            const traitor = players.find(p => p.id === tid)
+            const victim  = players.find(p => p.id === victimId)
+            return (
+              <div key={tid} style={{
+                fontSize: 10, color: '#fca5a5',
+                padding: '3px 0',
+                borderBottom: '1px solid #1e293b',
+              }}>
+                {traitor?.name} <span style={{ color: '#475569' }}>→</span> {victim?.name}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

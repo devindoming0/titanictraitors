@@ -175,3 +175,46 @@ export async function submitMurder(gameId, traitorId, targetId) {
     [`murderSubmissions.${traitorId}`]: targetId,
   })
 }
+
+// Client-side murder resolution — used by host to advance from night phase
+// without waiting for Cloud Functions. Same logic as functions/index.js.
+// Client-side murder resolution — host advances from night without Cloud Functions.
+// Same logic as functions/index.js processMurderForGame.
+export async function resolveMurder(gameId, allPlayers, game) {
+  const aliveTraitors = allPlayers.filter(p => p.isAlive && p.role === 'traitor')
+  const submissions = game.murderSubmissions || {}
+
+  let murderedId = null
+  if (aliveTraitors.length === 1) {
+    murderedId = submissions[aliveTraitors[0].id] || null
+  } else if (aliveTraitors.length >= 2) {
+    const votes = aliveTraitors.map(t => submissions[t.id]).filter(Boolean)
+    const agreed = votes.find(id => votes.filter(x => x === id).length === aliveTraitors.length)
+    murderedId = agreed || votes[0] || null
+  }
+
+  const murdered = murderedId ? allPlayers.find(p => p.id === murderedId) : null
+  const updatedPlayers = allPlayers.map(p =>
+    p.id === murderedId ? { ...p, isAlive: false } : p
+  )
+  const winner = checkWinConditions(updatedPlayers)
+
+  const batch = writeBatch(db)
+
+  if (murderedId) {
+    batch.update(doc(db, 'games', gameId, 'players', murderedId), { isAlive: false })
+  }
+
+  batch.update(doc(db, 'games', gameId), {
+    lastMurdered: murdered
+      ? { playerId: murderedId, character: murdered.character, name: murdered.name }
+      : null,
+    murderSubmissions: {},
+    nightEndsAt: null,
+    day: (game.day || 1) + 1,
+    phase: winner ? 'ended' : 'morning',
+    ...(winner ? { status: 'ended', winner } : {}),
+  })
+
+  await batch.commit()
+}

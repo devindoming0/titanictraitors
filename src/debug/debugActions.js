@@ -43,13 +43,13 @@ export async function autoVoteFakes(gameId, fakePlayers, nominees) {
   }
 }
 
-// Fake traitors each submit a random faithful as murder target
-export async function autoMurder(gameId, fakeTraitors, aliveFaithfuls) {
+// Fake traitors each submit a murder target (specific ID or random faithful)
+export async function autoMurder(gameId, fakeTraitors, aliveFaithfuls, targetId) {
   if (!aliveFaithfuls?.length) return
-  const target = aliveFaithfuls[Math.floor(Math.random() * aliveFaithfuls.length)]
+  const resolvedId = targetId || aliveFaithfuls[Math.floor(Math.random() * aliveFaithfuls.length)].id
   for (const traitor of fakeTraitors) {
     await updateDoc(doc(db, 'games', gameId), {
-      [`murderSubmissions.${traitor.id}`]: target.id,
+      [`murderSubmissions.${traitor.id}`]: resolvedId,
     })
   }
 }

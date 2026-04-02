@@ -1,5 +1,5 @@
 import { useGame } from '../context/GameContext'
-import { advancePhase } from '../lib/gameActions'
+import { advancePhase, setNominees } from '../lib/gameActions'
 import { CHARACTERS } from '../lib/characters'
 
 export default function DayPhase() {
@@ -11,7 +11,9 @@ export default function DayPhase() {
   const aliveFaithfulCount = alivePlayers.filter(p => p.role === 'faithful').length
 
   function handleBeginDinner() {
-    advancePhase(game.id, 'nominations')
+    // Skip nominations — all alive players are nominees
+    const nomineeIds = alivePlayers.map(p => p.id)
+    setNominees(game.id, nomineeIds)
   }
 
   return (
