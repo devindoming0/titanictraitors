@@ -14,121 +14,186 @@ const PHASE_LABELS = {
   ended: 'Ended',
 }
 
+const PHASE_COLORS = {
+  lobby: '#60a5fa',
+  night0: '#a78bfa',
+  day: '#fbbf24',
+  nominations: '#fb923c',
+  voting: '#f87171',
+  night: '#818cf8',
+  morning: '#34d399',
+  ended: '#94a3b8',
+}
+
 export default function DebugPanel() {
   const { game, players, currentPlayer } = useGame()
   const [open, setOpen] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [lastAction, setLastAction] = useState(null)
 
-  const fakePlayers  = players.filter(p => p.isDebug)
-  const realPlayers  = players.filter(p => !p.isDebug)
-  const alivePlayers = players.filter(p => p.isAlive)
-  const fakeTraitors = fakePlayers.filter(p => p.isAlive && p.role === 'traitor')
+  const fakePlayers   = players.filter(p => p.isDebug)
+  const realPlayers   = players.filter(p => !p.isDebug)
+  const alivePlayers  = players.filter(p => p.isAlive)
+  const fakeTraitors  = fakePlayers.filter(p => p.isAlive && p.role === 'traitor')
   const aliveFaithfuls = players.filter(p => p.isAlive && p.role === 'faithful')
-  const nominees = game?.nominees || []
-  const phase = game?.phase
+  const nominees      = game?.nominees || []
+  const phase         = game?.phase
+  const phaseColor    = PHASE_COLORS[phase] ?? '#94a3b8'
 
-  async function run(fn) {
+  async function run(fn, label) {
     setBusy(true)
-    try { await fn() } catch (e) { alert(e.message) } finally { setBusy(false) }
+    setLastAction(null)
+    try {
+      await fn()
+      setLastAction({ ok: true, msg: label + ' done' })
+    } catch (e) {
+      setLastAction({ ok: false, msg: e.message })
+    } finally {
+      setBusy(false)
+    }
   }
 
-  const panelStyle = {
-    position: 'fixed',
-    bottom: 16,
-    right: 16,
-    width: open ? 280 : 44,
-    background: '#0d1117',
-    border: '1px solid #f97316',
-    borderRadius: 10,
-    zIndex: 9999,
-    overflow: 'hidden',
-    fontFamily: 'monospace',
-    fontSize: 12,
-    color: '#e2e8f0',
-    boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
-    transition: 'width 0.2s',
-  }
-
-  const headerStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '8px 10px',
-    background: '#f97316',
-    color: '#000',
-    cursor: 'pointer',
-    fontWeight: 'bold',
-    fontSize: 11,
-    letterSpacing: '0.1em',
-  }
-
-  const btnStyle = {
-    display: 'block',
-    width: '100%',
-    padding: '6px 10px',
-    marginTop: 4,
-    background: '#1e293b',
-    color: '#f97316',
-    border: '1px solid #f97316',
-    borderRadius: 6,
-    cursor: 'pointer',
-    fontSize: 11,
-    textAlign: 'left',
-  }
-
-  const rowStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    padding: '3px 0',
-    borderBottom: '1px solid #1e293b',
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        style={{
+          position: 'fixed', bottom: 16, right: 16,
+          width: 44, height: 44,
+          background: '#0d1117',
+          border: '2px solid #f97316',
+          borderRadius: '50%',
+          cursor: 'pointer',
+          fontSize: 20,
+          zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 4px 20px rgba(249,115,22,0.4)',
+        }}
+        title="Open debug panel"
+      >
+        🛠
+      </button>
+    )
   }
 
   return (
-    <div style={panelStyle}>
-      {/* Header toggle */}
-      <div style={headerStyle} onClick={() => setOpen(o => !o)}>
-        {open ? (
-          <>
-            <span>🛠 DEBUG</span>
-            <span style={{ fontSize: 14 }}>×</span>
-          </>
-        ) : (
-          <span style={{ fontSize: 16 }}>🛠</span>
-        )}
+    <div style={{
+      position: 'fixed', bottom: 16, right: 16,
+      width: 300,
+      background: '#0d1117',
+      border: '1px solid #1e293b',
+      borderRadius: 12,
+      zIndex: 9999,
+      overflow: 'hidden',
+      fontFamily: "'SF Mono', 'Fira Code', monospace",
+      fontSize: 12,
+      color: '#e2e8f0',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.8), 0 0 0 1px rgba(249,115,22,0.2)',
+    }}>
+
+      {/* Header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '10px 14px',
+        background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+        borderBottom: '1px solid #1e293b',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 14 }}>🛠</span>
+          <span style={{ color: '#f97316', fontWeight: 700, letterSpacing: '0.08em', fontSize: 11 }}>
+            DEBUG
+          </span>
+          <span style={{
+            background: phaseColor + '22',
+            color: phaseColor,
+            border: `1px solid ${phaseColor}44`,
+            borderRadius: 4,
+            padding: '1px 6px',
+            fontSize: 10,
+            fontWeight: 600,
+          }}>
+            {PHASE_LABELS[phase] ?? phase ?? 'No game'}
+          </span>
+        </div>
+        <button
+          onClick={() => setOpen(false)}
+          style={{
+            background: 'transparent', border: 'none',
+            color: '#475569', cursor: 'pointer',
+            fontSize: 16, lineHeight: 1,
+            padding: '2px 4px', borderRadius: 4,
+          }}
+        >
+          ×
+        </button>
       </div>
 
-      {open && (
-        <div style={{ padding: 10, maxHeight: '70dvh', overflowY: 'auto' }}>
+      <div style={{ maxHeight: '75dvh', overflowY: 'auto' }}>
 
-          {/* Game status */}
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ color: '#94a3b8', marginBottom: 4 }}>GAME STATE</div>
-            <div>Phase: <span style={{ color: '#f97316' }}>{PHASE_LABELS[phase] ?? phase ?? '—'}</span></div>
-            <div>Day: <span style={{ color: '#f97316' }}>{game?.day ?? '—'}</span></div>
-            <div>Players: {alivePlayers.length} alive / {players.length} total</div>
-            <div>Fake: {fakePlayers.length} ({fakeTraitors.length} traitor)</div>
+        {/* Stats bar */}
+        <div style={{
+          display: 'flex', gap: 0,
+          borderBottom: '1px solid #1e293b',
+        }}>
+          {[
+            { label: 'ALIVE', value: alivePlayers.length, color: '#34d399' },
+            { label: 'TOTAL', value: players.length, color: '#60a5fa' },
+            { label: 'BOTS', value: fakePlayers.length, color: '#f97316' },
+            { label: 'DAY', value: game?.day ?? '—', color: '#fbbf24' },
+          ].map(s => (
+            <div key={s.label} style={{
+              flex: 1,
+              textAlign: 'center',
+              padding: '8px 4px',
+              borderRight: '1px solid #1e293b',
+            }}>
+              <div style={{ color: s.color, fontWeight: 700, fontSize: 16 }}>{s.value}</div>
+              <div style={{ color: '#475569', fontSize: 9, letterSpacing: '0.05em' }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Player roster */}
+        <div style={{ padding: '10px 14px' }}>
+          <div style={{
+            color: '#475569', fontSize: 9, letterSpacing: '0.1em',
+            fontWeight: 700, marginBottom: 8,
+          }}>
+            PLAYERS
           </div>
-
-          {/* Player roster with roles */}
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ color: '#94a3b8', marginBottom: 4 }}>ALL PLAYERS</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {players.map(p => {
               const char = CHARACTERS[p.character]
               const isMe = p.id === currentPlayer?.id
+              const isTraitor = p.role === 'traitor'
               return (
-                <div key={p.id} style={rowStyle}>
-                  <span>{char?.emoji ?? '?'}</span>
-                  <span style={{
-                    flex: 1,
-                    opacity: p.isAlive ? 1 : 0.4,
-                    textDecoration: p.isAlive ? 'none' : 'line-through',
-                  }}>
-                    {p.name}{isMe ? ' ★' : ''}{p.isDebug ? ' 🤖' : ''}
+                <div key={p.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '5px 8px',
+                  borderRadius: 6,
+                  background: isMe ? '#1e293b' : 'transparent',
+                  opacity: p.isAlive ? 1 : 0.35,
+                }}>
+                  <span style={{ fontSize: 14, minWidth: 20, textAlign: 'center' }}>
+                    {p.isAlive ? (char?.emoji ?? '?') : '💀'}
                   </span>
                   <span style={{
-                    color: p.role === 'traitor' ? '#fca5a5' : '#6ee7b7',
-                    fontSize: 10,
+                    flex: 1,
+                    textDecoration: p.isAlive ? 'none' : 'line-through',
+                    color: isMe ? '#f97316' : '#cbd5e1',
+                    fontSize: 11,
+                  }}>
+                    {p.name}
+                    {isMe && <span style={{ color: '#f97316', marginLeft: 4 }}>★</span>}
+                    {p.isDebug && <span style={{ color: '#475569', marginLeft: 4 }}>bot</span>}
+                  </span>
+                  <span style={{
+                    fontSize: 9,
+                    padding: '2px 6px',
+                    borderRadius: 3,
+                    background: isTraitor ? '#7f1d1d' : '#064e3b',
+                    color: isTraitor ? '#fca5a5' : '#6ee7b7',
+                    fontWeight: 600,
                   }}>
                     {p.role ?? '?'}
                   </span>
@@ -136,124 +201,238 @@ export default function DebugPanel() {
               )
             })}
           </div>
+        </div>
 
-          {/* Phase-specific actions */}
-          <div style={{ color: '#94a3b8', marginBottom: 4 }}>ACTIONS</div>
+        <div style={{ height: 1, background: '#1e293b' }} />
 
-          {/* Lobby: fill with fake players */}
+        {/* Actions */}
+        <div style={{ padding: '10px 14px' }}>
+          <div style={{
+            color: '#475569', fontSize: 9, letterSpacing: '0.1em',
+            fontWeight: 700, marginBottom: 8,
+          }}>
+            ACTIONS
+          </div>
+
+          {/* Lobby: fill buttons */}
           {(phase === 'lobby' || !phase) && (
             <div>
-              <div style={{ color: '#64748b', fontSize: 10, marginBottom: 4 }}>
+              <div style={{ color: '#64748b', fontSize: 10, marginBottom: 6 }}>
                 Fill lobby to total:
               </div>
-              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {[3, 4, 5, 6, 7, 8].map(n => (
-                  <button
-                    key={n}
-                    disabled={busy || players.length >= n}
-                    onClick={() => run(() => fillWithFakePlayers(game.id, players, n))}
-                    style={{
-                      ...btnStyle,
-                      width: 'auto',
-                      padding: '5px 10px',
-                      opacity: players.length >= n ? 0.3 : 1,
-                    }}
-                  >
-                    {n}
-                  </button>
-                ))}
+              <div style={{ display: 'flex', gap: 4 }}>
+                {[3, 4, 5, 6, 7, 8].map(n => {
+                  const disabled = busy || players.length >= n
+                  return (
+                    <button
+                      key={n}
+                      disabled={disabled}
+                      onClick={() => run(() => fillWithFakePlayers(game.id, players, n), `Fill to ${n}`)}
+                      style={{
+                        flex: 1,
+                        padding: '7px 4px',
+                        background: disabled ? '#1e293b' : '#7c3aed',
+                        color: disabled ? '#475569' : '#e9d5ff',
+                        border: 'none',
+                        borderRadius: 6,
+                        cursor: disabled ? 'not-allowed' : 'pointer',
+                        fontFamily: 'inherit',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        transition: 'background 0.15s',
+                      }}
+                    >
+                      {n}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )}
 
-          {/* Voting: auto-vote for fake players */}
+          {/* Voting phase */}
           {phase === 'voting' && (
             <div>
               {nominees.length > 0 ? (
                 <>
-                  <div style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>
-                    Nominees: {nominees.map(id => players.find(p => p.id === id)?.name).join(', ')}
+                  <div style={{
+                    background: '#1e293b', borderRadius: 6, padding: '6px 10px',
+                    marginBottom: 8, fontSize: 10,
+                  }}>
+                    <div style={{ color: '#94a3b8', marginBottom: 2 }}>Nominees</div>
+                    <div style={{ color: '#f97316' }}>
+                      {nominees.map(id => players.find(p => p.id === id)?.name).join(', ')}
+                    </div>
+                    <div style={{ color: '#475569', marginTop: 4 }}>
+                      {Object.keys(game?.votes || {}).length} / {alivePlayers.length} votes in
+                    </div>
                   </div>
-                  <div style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>
-                    Votes in: {Object.keys(game?.votes || {}).length} / {alivePlayers.length}
-                  </div>
-                  <button
-                    style={btnStyle}
+                  <ActionButton
                     disabled={busy}
-                    onClick={() => run(() => autoVoteFakes(game.id, fakePlayers, nominees))}
+                    color="#ef4444"
+                    onClick={() => run(() => autoVoteFakes(game.id, fakePlayers, nominees), 'Auto-vote')}
                   >
-                    Auto-Vote All Fakes ({fakePlayers.filter(p => p.isAlive && !game?.votes?.[p.id]).length} pending)
-                  </button>
+                    Auto-Vote Bots
+                    <Badge>{fakePlayers.filter(p => p.isAlive && !game?.votes?.[p.id]).length} pending</Badge>
+                  </ActionButton>
                 </>
               ) : (
-                <div style={{ color: '#64748b', fontSize: 10 }}>
-                  Waiting for host to set nominees…
-                </div>
+                <EmptyState>Waiting for host to set nominees…</EmptyState>
+              )}
+
+              {/* Votes preview */}
+              {Object.keys(game?.votes || {}).length > 0 && (
+                <VotesTable entries={Object.entries(game.votes)} players={players} />
               )}
             </div>
           )}
 
-          {/* Night: auto-murder */}
+          {/* Night phase */}
           {phase === 'night' && (
             <div>
               {fakeTraitors.length > 0 ? (
                 <>
-                  <div style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>
-                    Fake traitor(s): {fakeTraitors.map(t => t.name).join(', ')}
+                  <div style={{
+                    background: '#1e293b', borderRadius: 6, padding: '6px 10px',
+                    marginBottom: 8, fontSize: 10,
+                  }}>
+                    <div style={{ color: '#94a3b8', marginBottom: 2 }}>Fake traitors</div>
+                    <div style={{ color: '#fca5a5' }}>{fakeTraitors.map(t => t.name).join(', ')}</div>
+                    <div style={{ color: '#475569', marginTop: 4 }}>
+                      {fakeTraitors.filter(t => game?.murderSubmissions?.[t.id]).length} / {fakeTraitors.length} submitted
+                    </div>
                   </div>
-                  <div style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>
-                    Submitted: {fakeTraitors.filter(t => game?.murderSubmissions?.[t.id]).length} / {fakeTraitors.length}
-                  </div>
-                  <button
-                    style={btnStyle}
+                  <ActionButton
                     disabled={busy}
-                    onClick={() => run(() => autoMurder(game.id, fakeTraitors, aliveFaithfuls))}
+                    color="#7c3aed"
+                    onClick={() => run(() => autoMurder(game.id, fakeTraitors, aliveFaithfuls), 'Auto-murder')}
                   >
-                    Auto-Murder (random faithful)
-                  </button>
+                    Auto-Murder
+                    <Badge bg="#581c87" color="#e9d5ff">random faithful</Badge>
+                  </ActionButton>
                 </>
               ) : (
-                <div style={{ color: '#64748b', fontSize: 10 }}>
-                  No fake traitors alive.
+                <EmptyState>No fake traitors alive.</EmptyState>
+              )}
+
+              {Object.keys(game?.murderSubmissions || {}).length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ color: '#475569', fontSize: 9, letterSpacing: '0.1em', fontWeight: 700, marginBottom: 4 }}>
+                    SUBMISSIONS
+                  </div>
+                  {Object.entries(game.murderSubmissions).map(([tid, victimId]) => {
+                    const traitor = players.find(p => p.id === tid)
+                    const victim  = players.find(p => p.id === victimId)
+                    return (
+                      <div key={tid} style={{
+                        fontSize: 10, color: '#fca5a5',
+                        padding: '3px 0',
+                        borderBottom: '1px solid #1e293b',
+                      }}>
+                        {traitor?.name} <span style={{ color: '#475569' }}>→</span> {victim?.name}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </div>
           )}
 
-          {/* Murder submissions preview */}
-          {phase === 'night' && Object.keys(game?.murderSubmissions || {}).length > 0 && (
-            <div style={{ marginTop: 8 }}>
-              <div style={{ color: '#94a3b8', marginBottom: 4 }}>MURDER SUBMISSIONS</div>
-              {Object.entries(game.murderSubmissions).map(([tid, victimId]) => {
-                const traitor = players.find(p => p.id === tid)
-                const victim = players.find(p => p.id === victimId)
-                return (
-                  <div key={tid} style={{ fontSize: 10, color: '#fca5a5' }}>
-                    {traitor?.name} → {victim?.name}
-                  </div>
-                )
-              })}
-            </div>
+          {/* Idle phases */}
+          {phase && !['lobby', 'voting', 'night'].includes(phase) && (
+            <EmptyState>No actions available in {PHASE_LABELS[phase]} phase.</EmptyState>
           )}
-
-          {/* Votes preview */}
-          {phase === 'voting' && Object.keys(game?.votes || {}).length > 0 && (
-            <div style={{ marginTop: 8 }}>
-              <div style={{ color: '#94a3b8', marginBottom: 4 }}>CURRENT VOTES</div>
-              {Object.entries(game.votes).map(([vid, targetId]) => {
-                const voter = players.find(p => p.id === vid)
-                const target = players.find(p => p.id === targetId)
-                return (
-                  <div key={vid} style={{ fontSize: 10 }}>
-                    {voter?.name} → {target?.name}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
         </div>
-      )}
+
+        {/* Toast */}
+        {lastAction && (
+          <div style={{
+            margin: '0 14px 12px',
+            padding: '6px 10px',
+            borderRadius: 6,
+            background: lastAction.ok ? '#064e3b' : '#7f1d1d',
+            color: lastAction.ok ? '#6ee7b7' : '#fca5a5',
+            fontSize: 10,
+          }}>
+            {lastAction.ok ? '✓' : '✗'} {lastAction.msg}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ActionButton({ children, onClick, disabled, color = '#f97316' }) {
+  return (
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        width: '100%',
+        padding: '8px 10px',
+        background: disabled ? '#1e293b' : color + '22',
+        color: disabled ? '#475569' : color,
+        border: `1px solid ${disabled ? '#1e293b' : color + '55'}`,
+        borderRadius: 6,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        fontFamily: 'inherit',
+        fontSize: 11,
+        fontWeight: 600,
+        textAlign: 'left',
+        transition: 'background 0.15s',
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+function Badge({ children, bg = '#1e293b', color = '#94a3b8' }) {
+  return (
+    <span style={{
+      marginLeft: 'auto',
+      background: bg,
+      color,
+      padding: '1px 6px',
+      borderRadius: 3,
+      fontSize: 9,
+      fontWeight: 500,
+    }}>
+      {children}
+    </span>
+  )
+}
+
+function EmptyState({ children }) {
+  return (
+    <div style={{ color: '#475569', fontSize: 10, padding: '6px 0', fontStyle: 'italic' }}>
+      {children}
+    </div>
+  )
+}
+
+function VotesTable({ entries, players }) {
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div style={{ color: '#475569', fontSize: 9, letterSpacing: '0.1em', fontWeight: 700, marginBottom: 4 }}>
+        CURRENT VOTES
+      </div>
+      {entries.map(([vid, targetId]) => {
+        const voter  = players.find(p => p.id === vid)
+        const target = players.find(p => p.id === targetId)
+        return (
+          <div key={vid} style={{
+            fontSize: 10, padding: '3px 0',
+            borderBottom: '1px solid #1e293b',
+            display: 'flex', gap: 6,
+          }}>
+            <span style={{ color: '#cbd5e1', flex: 1 }}>{voter?.name}</span>
+            <span style={{ color: '#475569' }}>→</span>
+            <span style={{ color: '#fbbf24', flex: 1, textAlign: 'right' }}>{target?.name}</span>
+          </div>
+        )
+      })}
     </div>
   )
 }
