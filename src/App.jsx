@@ -3,6 +3,7 @@ import { onAuthStateChanged, signInAnonymously } from 'firebase/auth'
 import { auth } from './firebase'
 import { GameProvider } from './context/GameContext'
 import DebugPanel from './debug/DebugPanel'
+import Tutorial from './components/Tutorial'
 
 import HomeScreen    from './screens/HomeScreen'
 import LobbyScreen   from './screens/LobbyScreen'
@@ -28,6 +29,7 @@ export default function App() {
   const [authUid, setAuthUid] = useState(null)
   const [session, setSession] = useState(loadSession)
   const [screen, setScreen] = useState(session?.gameId ? 'lobby' : 'home')
+  const [showTutorial, setShowTutorial] = useState(() => !localStorage.getItem('tt_tutorial_done'))
 
   // Anonymous auth — persists across refreshes in Firebase SDK
   useEffect(() => {
@@ -69,6 +71,11 @@ export default function App() {
     setScreen('home')
   }
 
+  function closeTutorial() {
+    setShowTutorial(false)
+    localStorage.setItem('tt_tutorial_done', '1')
+  }
+
   if (!authUid) {
     return (
       <div className="screen screen-center">
@@ -81,8 +88,9 @@ export default function App() {
 
   return (
     <GameProvider session={session}>
+      {showTutorial && <Tutorial onClose={closeTutorial} />}
       {screen === 'home' &&
-        <HomeScreen authUid={authUid} onNavigate={navigate} />}
+        <HomeScreen authUid={authUid} onNavigate={navigate} onShowTutorial={() => setShowTutorial(true)} />}
       {screen === 'lobby' &&
         <LobbyScreen onNavigate={navigate} onReset={handleReset} />}
       {screen === 'reveal' &&

@@ -24,7 +24,7 @@ function Toggle({ label, desc, checked, onChange }) {
   )
 }
 
-export default function HomeScreen({ authUid, onNavigate }) {
+export default function HomeScreen({ authUid, onNavigate, onShowTutorial }) {
   const [view, setView] = useState('home') // 'home' | 'create' | 'join'
   const [name, setName] = useState('')
   const [code, setCode] = useState('')
@@ -83,6 +83,16 @@ export default function HomeScreen({ authUid, onNavigate }) {
         <p className="info-msg" style={{ marginTop: 32 }}>
           For 3–8 players · Designed for a 6-day cruise
         </p>
+
+        {onShowTutorial && (
+          <button
+            className="btn btn-ghost"
+            onClick={onShowTutorial}
+            style={{ marginTop: 12 }}
+          >
+            How to Play
+          </button>
+        )}
       </div>
     )
   }
