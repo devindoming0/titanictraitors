@@ -11,7 +11,15 @@ if (!fs.existsSync(indexPath)) {
   console.error('Contents of', __dirname + ':', fs.readdirSync(__dirname).join(', '))
 }
 
-app.use(express.static(distPath))
+app.use(express.static(distPath, {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('index.html')) {
+      res.setHeader('Cache-Control', 'no-cache')
+    } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+    }
+  },
+}))
 
 // SPA fallback — only for navigation requests, not missing assets
 app.get('*', (req, res) => {
